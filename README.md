@@ -66,9 +66,9 @@ This version is intended for:
 - Python `3.11` or newer
 - Linux for production deployments
 
-The Python source can also be checked on Windows, but `install.sh`, Crafty
-integration, and optional `systemd` service setup are primarily intended for
-Linux.
+The Python source can also be checked on Windows, but the included
+`install.sh`, Crafty integration, and optional `systemd` service setup are
+primarily intended for Linux.
 
 ## Requirements
 
@@ -89,33 +89,26 @@ python3 --version
 
 ## Installation
 
-### Quick Install
+### Quick Install from GitHub (Linux)
 
-Clone the repository into the Forge server directory:
+Run these commands **inside your Forge server directory**:
 
 ```bash
-cd /path/to/your/forge-server
-
-git clone https://github.com/Syxonis/minecraft-idle-server-proxy.git
-
-cd minecraft-idle-server-proxy
-
-chmod +x install.sh start-proxy.sh
-
+cd /path/to/your/forge-server && \
+git clone https://github.com/Syxonis/minecraft-idle-server-proxy.git && \
+cd minecraft-idle-server-proxy && \
+chmod +x install.sh start-proxy.sh && \
 ./install.sh
 ```
 
-The setup helper creates `idle-server.toml`, asks for the Forge server
-directory, optionally enables Crafty integration, validates the configuration,
-and can create a `systemd` service.
+The installer creates `idle-server.toml` from the example configuration, asks
+for the Forge server directory, optionally enables Crafty integration, and
+validates the resulting configuration.
 
-## Recommended Directory Layout
-
-For Crafty Controller, install the proxy inside the actual Forge server
-directory:
+For Crafty installations, the final directory structure should look like this:
 
 ```text
-/path/to/forge-server/
+/path/to/your/forge-server/
 ├── libraries/
 ├── logs/
 ├── mods/
@@ -132,31 +125,50 @@ directory:
     └── idle-server.log
 ```
 
-For example, Crafty server directories commonly look like this:
-
-```text
-/var/opt/minecraft/crafty/crafty-4/servers/
-└── e82847a6-38b2-4699-acf4-ca36d62ba064/
-    ├── libraries/
-    ├── logs/
-    ├── mods/
-    ├── world/
-    ├── server.properties
-    ├── user_jvm_args.txt
-    │
-    └── minecraft-idle-server-proxy/
-        ├── idle-server.py
-        ├── idle-server.toml
-        ├── install.sh
-        └── start-proxy.sh
-```
-
-> Crafty's **Working Directory** must be the actual Forge server directory,
+> When using Crafty, install the proxy inside the Forge server directory.
+> Crafty's Working Directory must remain the Forge server directory itself,
 > not the `minecraft-idle-server-proxy` subdirectory.
 
-## Interactive Setup Helper
+### Quick Install for Crafty Server Directories
 
-Run these commands inside the proxy directory:
+Example for a typical Crafty server directory:
+
+```bash
+cd /var/opt/minecraft/crafty/crafty-4/servers/YOUR-SERVER-UUID && \
+git clone https://github.com/Syxonis/minecraft-idle-server-proxy.git && \
+cd minecraft-idle-server-proxy && \
+chmod +x install.sh start-proxy.sh && \
+./install.sh
+```
+
+Replace `YOUR-SERVER-UUID` with the folder name of your Crafty server.
+
+After the installer finishes, use these Crafty settings:
+
+```text
+Working Directory:
+  /var/opt/minecraft/crafty/crafty-4/servers/YOUR-SERVER-UUID
+
+Execution Command:
+  ./minecraft-idle-server-proxy/start-proxy.sh
+
+Stop Command:
+  stop
+
+Log Location:
+  ./minecraft-idle-server-proxy/idle-server.log
+
+Server IP:
+  127.0.0.1
+
+Server Port:
+  25565
+```
+
+### Interactive Setup Helper
+
+If the repository was already cloned or downloaded, run this from the proxy
+directory:
 
 ```bash
 chmod +x install.sh start-proxy.sh
@@ -187,34 +199,32 @@ The setup helper does **not**:
 > Crafty integration and `systemd` are alternative deployment methods.
 > Do not use both to start the same proxy instance.
 
-## Manual Installation
+### Manual Installation
 
-### 1. Clone the Repository
+#### 1. Clone the Repository
 
 Clone the repository into the Forge server directory:
 
 ```bash
 cd /path/to/your/forge-server
-
 git clone https://github.com/Syxonis/minecraft-idle-server-proxy.git
-
 cd minecraft-idle-server-proxy
 ```
 
-### 2. Make the Scripts Executable
+#### 2. Make the Scripts Executable
 
 ```bash
 chmod +x install.sh
 chmod +x start-proxy.sh
 ```
 
-### 3. Create the Local Configuration
+#### 3. Create the Local Configuration
 
 ```bash
 cp idle-server.toml.example idle-server.toml
 ```
 
-### 4. Configure the Forge Directory
+#### 4. Configure the Forge Directory
 
 Open `idle-server.toml` and set `server.directory` to the actual Forge server
 directory, not the proxy directory.
@@ -238,23 +248,34 @@ protocol = 763
 max_players = 20
 ```
 
-For the example Crafty directory above:
+Example for Crafty:
 
 ```toml
 [server]
-directory = "/var/opt/minecraft/crafty/crafty-4/servers/e82847a6-38b2-4699-acf4-ca36d62ba064"
+directory = "/var/opt/minecraft/crafty/crafty-4/servers/YOUR-SERVER-UUID"
 ```
 
-### 5. Configure Forge `server.properties`
+The configured directory must contain your actual Forge server files, for
+example:
 
-Forge must listen on a different port than the proxy.
+```text
+libraries/
+mods/
+world/
+server.properties
+user_jvm_args.txt
+```
+
+#### 5. Configure Forge `server.properties`
+
+Forge must use a different port from the public proxy port.
 
 ```properties
 server-ip=127.0.0.1
 server-port=25566
 ```
 
-### 6. Configure the Proxy Port
+#### 6. Configure the Proxy Port
 
 The proxy listens publicly on port `25565` by default:
 
@@ -272,7 +293,7 @@ your-domain-or-ip:25565
 
 Players should not connect directly to Forge on port `25566`.
 
-### 7. Validate the Configuration
+#### 7. Validate the Configuration
 
 ```bash
 python3 idle-server.py --check-config
@@ -284,7 +305,7 @@ Expected output:
 Configuration is valid: /path/to/idle-server.toml
 ```
 
-### 8. Start the Proxy Manually
+#### 8. Start the Proxy Manually
 
 ```bash
 ./start-proxy.sh
@@ -321,10 +342,10 @@ When Crafty integration is enabled:
 - `status` displays proxy and backend status.
 - `stop`, `exit`, or `quit` stops the proxy.
 - Forge is stopped only when it was started by this proxy.
-- Other Crafty console commands can be forwarded to Forge while Forge runs.
+- Other Crafty console commands can be forwarded to Forge while it is running.
 - Forge output can be displayed in Crafty's console and the proxy log.
 
-Example forwarded Forge commands:
+Example Forge commands that can be forwarded through Crafty:
 
 ```text
 list
@@ -334,10 +355,11 @@ whitelist add PlayerName
 
 ### Crafty Start Script
 
-`start-proxy.sh` finds its own directory and starts `idle-server.py`.
+The included `start-proxy.sh` script locates its own directory and starts
+`idle-server.py` with unbuffered Python output.
 
-Therefore it works correctly even if Crafty's Working Directory is the Forge
-server directory while the script itself is stored in the proxy subdirectory.
+It works correctly when Crafty's Working Directory is the Forge server
+directory and the script itself is stored in the proxy subdirectory.
 
 Make it executable:
 
@@ -373,35 +395,13 @@ Server Port:
   25565
 ```
 
-For the example Crafty directory:
-
-```text
-Working Directory:
-  /var/opt/minecraft/crafty/crafty-4/servers/e82847a6-38b2-4699-acf4-ca36d62ba064
-
-Execution Command:
-  ./minecraft-idle-server-proxy/start-proxy.sh
-
-Stop Command:
-  stop
-
-Log Location:
-  ./minecraft-idle-server-proxy/idle-server.log
-
-Server IP:
-  127.0.0.1
-
-Server Port:
-  25565
-```
-
-The IP and port configured in Crafty must point to the public proxy:
+The Crafty IP and port must point to the **public proxy**:
 
 ```text
 127.0.0.1:25565
 ```
 
-Forge itself should listen only on:
+Forge itself should listen locally on:
 
 ```text
 127.0.0.1:25566
@@ -429,7 +429,7 @@ python3 -m py_compile idle-server.py
 
 ## Configuration
 
-### Ports
+### Server and Proxy Ports
 
 ```toml
 [server]
@@ -441,7 +441,7 @@ bind = "0.0.0.0"
 public_port = 25565
 ```
 
-The ports must be different:
+The backend and public proxy ports must be different:
 
 ```text
 Public proxy:  0.0.0.0:25565
@@ -452,9 +452,16 @@ Forge backend: 127.0.0.1:25566
 
 ```toml
 [time]
+# Stop Forge after this many seconds without online players.
 sleep_after = 600
+
+# Maximum time Forge may take to open its backend port.
 start_timeout = 300
+
+# Expected startup time used only in status and join messages.
 estimated_start_time = 90
+
+# Interval for checking the online player count.
 player_check_interval = 15
 ```
 
@@ -508,8 +515,8 @@ sudo systemctl restart minecraft-idle-server-proxy
 sudo journalctl -u minecraft-idle-server-proxy -f
 ```
 
-Do not configure Crafty to start the proxy if the same proxy is managed by
-`systemd`.
+Do not configure Crafty to start the proxy if the same proxy instance is
+already managed by `systemd`.
 
 ## Important Notes
 
@@ -541,14 +548,14 @@ Only the public proxy port should be reachable by players.
 
 ### Do Not Use the Same Port Twice
 
-Incorrect:
+Incorrect configuration:
 
 ```text
 Public proxy:  0.0.0.0:25565
 Forge backend: 0.0.0.0:25565
 ```
 
-Correct:
+Correct configuration:
 
 ```text
 Public proxy:  0.0.0.0:25565
@@ -563,7 +570,7 @@ By default, logs are written to:
 idle-server.log
 ```
 
-With the recommended Crafty layout, the file is located here:
+With the recommended Crafty layout, the log file is located at:
 
 ```text
 /path/to/forge-server/minecraft-idle-server-proxy/idle-server.log
@@ -577,6 +584,16 @@ file = "idle-server.log"
 level = "INFO"
 max_bytes = 5242880
 backup_count = 3
+```
+
+Available log levels:
+
+```text
+DEBUG
+INFO
+WARNING
+ERROR
+CRITICAL
 ```
 
 ## Troubleshooting
@@ -624,6 +641,34 @@ Then verify:
 - Forge starts normally without the proxy.
 - The backend port matches `server.properties`.
 - Forge is not using port `25565`.
+
+### Players Can Connect Directly to Forge
+
+Ensure Forge binds locally:
+
+```properties
+server-ip=127.0.0.1
+server-port=25566
+```
+
+Also ensure the backend port is not exposed through the firewall, hosting
+panel, or router.
+
+### systemd Service Does Not Start
+
+Check service status and logs:
+
+```bash
+sudo systemctl status minecraft-idle-server-proxy
+sudo journalctl -u minecraft-idle-server-proxy -n 100 --no-pager
+```
+
+Verify that:
+
+- The project directory still exists.
+- The configured service user can access the Forge directory.
+- Python 3.11 or newer is available.
+- `idle-server.toml` exists and passes `--check-config`.
 
 ## License
 
