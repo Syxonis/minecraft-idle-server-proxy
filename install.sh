@@ -108,7 +108,15 @@ ask_yes_no() {
 # -------------------------------------------------------------------
 
 detect_possible_servers() {
-    local base_dirs=(
+    local base
+    local directory
+    local selection
+    local manual
+    local confirmation
+    local index
+    local path
+
+    local -a base_dirs=(
         "$SCRIPT_DIR/../servers"
         "$SCRIPT_DIR/servers"
         "/var/opt/minecraft/crafty/crafty-4/servers"
@@ -116,43 +124,40 @@ detect_possible_servers() {
         "$HOME/servers"
     )
 
-    local found=()
-    local base
-    local directory
-    local selection
-    local manual
-    local confirmation
+    local -a found=()
+    local -a possible_servers=()
 
     for base in "${base_dirs[@]}"; do
-        if [[ -d "$base" ]]; then
-            for directory in "$base"/*/; do
-                [[ -d "$directory" ]] || continue
+        [[ -d "$base" ]] || continue
 
-                directory="${directory%/}"
+        for directory in "$base"/*/; do
+            [[ -d "$directory" ]] || continue
 
-                if [[ -f "$directory/user_jvm_args.txt" ]] || \
-                   [[ -f "$directory/server.properties" ]] || \
-                   [[ -d "$directory/mods" ]]; then
-                    found+=("$directory")
-                fi
-            done
-        fi
+            directory="${directory%/}"
+
+            if [[ -f "$directory/user_jvm_args.txt" ]] || \
+               [[ -f "$directory/server.properties" ]] || \
+               [[ -d "$directory/mods" ]]; then
+                found+=("$directory")
+            fi
+        done
     done
 
-    mapfile -t POSSIBLE_SERVERS < <(
-        printf "%s\n" "${found[@]}" | awk '!seen[$0]++'
-    )
+    if (( ${#found[@]} > 0 )); then
+        mapfile -t possible_servers < <(
+            printf "%s\n" "${found[@]}" | awk '!seen[$0]++'
+        )
+    fi
 
-    if (( ${#POSSIBLE_SERVERS[@]} > 0 )); then
+    if (( ${#possible_servers[@]} > 0 )); then
         echo
         echo "Detected possible Forge server directories:"
 
-        local index=1
-        local path
+        index=1
 
-        for path in "${POSSIBLE_SERVERS[@]}"; do
+        for path in "${possible_servers[@]}"; do
             echo "  [$index] $path"
-            ((index++))
+            ((index += 1))
         done
 
         while true; do
@@ -175,9 +180,9 @@ detect_possible_servers() {
             fi
 
             if [[ "$selection" =~ ^[0-9]+$ ]] && \
-               (( selection >= 1 && selection <= ${#POSSIBLE_SERVERS[@]} )); then
+               (( selection >= 1 && selection <= ${#possible_servers[@]} )); then
 
-                FORGE_DIRECTORY="${POSSIBLE_SERVERS[$((selection - 1))]}"
+                FORGE_DIRECTORY="${possible_servers[$((selection - 1))]}"
 
                 read -r -p \
                     "Is this correct? $FORGE_DIRECTORY [Y/n]: " \
@@ -350,6 +355,7 @@ create_or_update_config() {
                 "y"; then
 
                 detect_possible_servers
+
                 set_toml_value \
                     "server" \
                     "directory" \
@@ -384,7 +390,7 @@ configure_crafty() {
     echo "Enable it only when Crafty starts this proxy process."
     echo
 
-    if "$WANTS_SYSTEMD_SERVICE"; then
+    if [[ "$WANTS_SYSTEMD_SERVICE" == "true" ]]; then
         print_warning "systemd does not provide Crafty's interactive console."
         print_warning "Crafty console integration will be disabled."
 
@@ -527,8 +533,8 @@ EOF
 main() {
     print_header "$APP_NAME - Interactive Setup"
 
-    echo "This proxy repository should be stored separately from your Forge"
-    echo "server directory. The setup asks where your Forge files are located."
+    echo "This proxy repository should be stored inside or separately from"
+    echo "your Forge server directory. The setup asks where Forge is located."
     echo
     echo "This setup does not modify Forge, worlds, server.properties,"
     echo "firewall rules, or router settings."
@@ -555,7 +561,7 @@ main() {
         die "Setup stopped because idle-server.toml is invalid."
     fi
 
-    if "$WANTS_SYSTEMD_SERVICE"; then
+    if [[ "$WANTS_SYSTEMD_SERVICE" == "true" ]]; then
         create_systemd_service
     fi
 
@@ -579,7 +585,7 @@ main() {
     echo "  server-ip=127.0.0.1"
     echo "  server-port=25566"
 
-    if "$CRAFTY_ENABLED"; then
+    if [[ "$CRAFTY_ENABLED" == "true" ]]; then
         print_header "CRAFTY CONFIGURATION (copy & paste)"
 
         cat <<EOF
@@ -601,7 +607,6 @@ Crafty server IP (for stats):
 Crafty server Port (for stats):
   25565
 EOF
-    fi
     fi
 }
 
