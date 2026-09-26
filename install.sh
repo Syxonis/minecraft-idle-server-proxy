@@ -6,7 +6,7 @@
 # - Checks for Python 3.11+
 # - Creates idle-server.toml from idle-server.toml.example
 # - Asks for the Forge server directory
-# - Configures optional Crafty support
+# - Configures optional Crafty console integration
 # - Validates the configuration
 # - Optionally creates a systemd service
 #
@@ -105,10 +105,6 @@ ask_forge_directory() {
     local entered_directory=""
     local default_directory=""
 
-    if [[ -d "$SCRIPT_DIR/../servers" ]]; then
-        default_directory="$SCRIPT_DIR/../servers"
-    fi
-
     echo
     echo "Enter the absolute path to your Forge server directory."
     echo "It should contain files such as:"
@@ -119,12 +115,7 @@ ask_forge_directory() {
     echo
 
     while true; do
-        if [[ -n "$default_directory" ]]; then
-            read -r -p "Forge server directory [$default_directory]: " entered_directory
-            entered_directory="${entered_directory:-$default_directory}"
-        else
-            read -r -p "Forge server directory: " entered_directory
-        fi
+        read -r -p "Forge server directory: " entered_directory
 
         if [[ -z "$entered_directory" ]]; then
             print_warning "A Forge server directory is required."
@@ -216,7 +207,6 @@ set_toml_value() {
     local value="$3"
 
     "$PYTHON_BIN" - "$CONFIG_FILE" "$section" "$key" "$value" <<'PYTHON'
-import re
 import sys
 from pathlib import Path
 
@@ -227,32 +217,33 @@ new_value = sys.argv[4]
 
 lines = config_path.read_text(encoding="utf-8").splitlines(keepends=True)
 
-inside_target_section = False
+current_section = None
 updated = False
-result = []
 
-section_pattern = re.compile(r"^\s*
-$$
-([^
-$$
-]+)\]\s*(?:#.*)?$")
-key_pattern = re.compile(
-    rf"^(\s*{re.escape(target_key)}\s*=\s*).*$"
-)
+for index, line in enumerate(lines):
+    stripped = line.strip()
 
-for line in lines:
-    section_match = section_pattern.match(line)
+    if stripped.startswith("[") and "]" in stripped:
+        current_section = stripped[1:stripped.index("]")].strip()
+        continue
 
-    if section_match:
-        inside_target_section = section_match.group(1).strip() == target_section
+    if current_section != target_section:
+        continue
 
-    key_match = key_pattern.match(line)
+    without_indent = line.lstrip()
 
-    if inside_target_section and key_match:
-        line = f"{key_match.group(1)}{new_value}\n"
-        updated = True
+    if not without_indent.startswith(target_key):
+        continue
 
-    result.append(line)
+    remainder = without_indent[len(target_key):].lstrip()
+
+    if not remainder.startswith("="):
+        continue
+
+    indentation = line[:len(line) - len(without_indent)]
+    lines[index] = f"{indentation}{target_key} = {new_value}\n"
+    updated = True
+    break
 
 if not updated:
     raise SystemExit(
@@ -260,10 +251,14 @@ if not updated:
         f'within {config_path}.'
     )
 
-config_path.write_text("".join(result), encoding="utf-8")
+config_path.write_text("".join(lines), encoding="utf-8")
 PYTHON
 }
 
+
+# -------------------------------------------------------------------
+# Configuration setup
+# -------------------------------------------------------------------
 
 create_or_update_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
