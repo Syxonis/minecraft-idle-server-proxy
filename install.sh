@@ -27,6 +27,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 PROXY_SCRIPT="$SCRIPT_DIR/idle-server.py"
+START_SCRIPT="$SCRIPT_DIR/start-proxy.sh"
 CONFIG_EXAMPLE="$SCRIPT_DIR/idle-server.toml.example"
 CONFIG_FILE="$SCRIPT_DIR/idle-server.toml"
 
@@ -37,6 +38,7 @@ CURRENT_USER="$(id -un)"
 PYTHON_PATH=""
 FORGE_DIRECTORY=""
 WANTS_SYSTEMD_SERVICE=false
+CRAFTY_ENABLED=false
 
 
 # -------------------------------------------------------------------
@@ -101,45 +103,111 @@ ask_yes_no() {
 }
 
 
-ask_forge_directory() {
-    local entered_directory=""
-    local default_directory=""
+# -------------------------------------------------------------------
+# Forge server directory detection
+# -------------------------------------------------------------------
 
-    echo
-    echo "Enter the absolute path to your Forge server directory."
-    echo "It should contain files such as:"
-    echo "  user_jvm_args.txt"
-    echo "  libraries/"
-    echo "  mods/"
-    echo "  world/"
-    echo
+detect_possible_servers() {
+    local base_dirs=(
+        "$SCRIPT_DIR/../servers"
+        "$SCRIPT_DIR/servers"
+        "/var/opt/minecraft/crafty/crafty-4/servers"
+        "/opt/minecraft/servers"
+        "$HOME/servers"
+    )
 
-    while true; do
-        read -r -p "Forge server directory: " entered_directory
+    local found=()
+    local base
+    local directory
+    local selection
+    local manual
+    local confirmation
 
-        if [[ -z "$entered_directory" ]]; then
-            print_warning "A Forge server directory is required."
-            continue
+    for base in "${base_dirs[@]}"; do
+        if [[ -d "$base" ]]; then
+            for directory in "$base"/*/; do
+                [[ -d "$directory" ]] || continue
+
+                directory="${directory%/}"
+
+                if [[ -f "$directory/user_jvm_args.txt" ]] || \
+                   [[ -f "$directory/server.properties" ]] || \
+                   [[ -d "$directory/mods" ]]; then
+                    found+=("$directory")
+                fi
+            done
         fi
+    done
 
-        if [[ ! -d "$entered_directory" ]]; then
-            print_warning "Directory does not exist: $entered_directory"
-            continue
-        fi
+    mapfile -t POSSIBLE_SERVERS < <(
+        printf "%s\n" "${found[@]}" | awk '!seen[$0]++'
+    )
 
-        entered_directory="$(cd "$entered_directory" && pwd)"
+    if (( ${#POSSIBLE_SERVERS[@]} > 0 )); then
+        echo
+        echo "Detected possible Forge server directories:"
 
-        if [[ ! -f "$entered_directory/user_jvm_args.txt" ]]; then
-            print_warning "user_jvm_args.txt was not found in this directory."
-            print_warning "This may not be the correct Forge server directory."
+        local index=1
+        local path
 
-            if ! ask_yes_no "Use this directory anyway?" "n"; then
+        for path in "${POSSIBLE_SERVERS[@]}"; do
+            echo "  [$index] $path"
+            ((index++))
+        done
+
+        while true; do
+            read -r -p \
+                "Select number, or press ENTER to input manually: " \
+                selection
+
+            if [[ -z "$selection" ]]; then
+                read -r -p \
+                    "Enter the absolute Forge server directory path: " \
+                    manual
+
+                if [[ -d "$manual" ]]; then
+                    FORGE_DIRECTORY="$manual"
+                    return 0
+                fi
+
+                print_warning "Directory not found: $manual"
                 continue
             fi
+
+            if [[ "$selection" =~ ^[0-9]+$ ]] && \
+               (( selection >= 1 && selection <= ${#POSSIBLE_SERVERS[@]} )); then
+
+                FORGE_DIRECTORY="${POSSIBLE_SERVERS[$((selection - 1))]}"
+
+                read -r -p \
+                    "Is this correct? $FORGE_DIRECTORY [Y/n]: " \
+                    confirmation
+
+                confirmation="${confirmation:-y}"
+
+                if [[ "$confirmation" =~ ^[Yy] ]]; then
+                    return 0
+                fi
+
+                print_info "Choose another directory."
+                continue
+            fi
+
+            print_warning "Invalid selection."
+        done
+    fi
+
+    while true; do
+        read -r -p \
+            "No server directory detected; enter the absolute Forge server directory path: " \
+            manual
+
+        if [[ -d "$manual" ]]; then
+            FORGE_DIRECTORY="$manual"
+            return 0
         fi
 
-        FORGE_DIRECTORY="$entered_directory"
-        return
+        print_warning "Directory not found: $manual"
     done
 }
 
@@ -149,8 +217,14 @@ ask_forge_directory() {
 # -------------------------------------------------------------------
 
 check_project_files() {
-    [[ -f "$PROXY_SCRIPT" ]] || die "Missing required file: idle-server.py"
-    [[ -f "$CONFIG_EXAMPLE" ]] || die "Missing required file: idle-server.toml.example"
+    [[ -f "$PROXY_SCRIPT" ]] || \
+        die "Missing required file: idle-server.py"
+
+    [[ -f "$START_SCRIPT" ]] || \
+        die "Missing required file: start-proxy.sh"
+
+    [[ -f "$CONFIG_EXAMPLE" ]] || \
+        die "Missing required file: idle-server.toml.example"
 }
 
 
@@ -271,9 +345,16 @@ create_or_update_config() {
         else
             print_info "Existing configuration was kept."
 
-            if ask_yes_no "Update the configured Forge server directory?" "y"; then
-                ask_forge_directory
-                set_toml_value "server" "directory" "\"$FORGE_DIRECTORY\""
+            if ask_yes_no \
+                "Update the configured Forge server directory?" \
+                "y"; then
+
+                detect_possible_servers
+                set_toml_value \
+                    "server" \
+                    "directory" \
+                    "\"$FORGE_DIRECTORY\""
+
                 print_info "Updated server.directory."
             fi
 
@@ -285,8 +366,12 @@ create_or_update_config() {
         echo "       $CONFIG_FILE"
     fi
 
-    ask_forge_directory
-    set_toml_value "server" "directory" "\"$FORGE_DIRECTORY\""
+    detect_possible_servers
+
+    set_toml_value \
+        "server" \
+        "directory" \
+        "\"$FORGE_DIRECTORY\""
 
     print_info "Configured Forge server directory:"
     echo "       $FORGE_DIRECTORY"
@@ -296,21 +381,25 @@ create_or_update_config() {
 configure_crafty() {
     echo
     echo "Crafty Controller integration is optional."
-    echo "It is useful only when Crafty starts this proxy process."
+    echo "Enable it only when Crafty starts this proxy process."
     echo
 
     if "$WANTS_SYSTEMD_SERVICE"; then
         print_warning "systemd does not provide Crafty's interactive console."
         print_warning "Crafty console integration will be disabled."
+
         set_toml_value "crafty" "enabled" "false"
+        CRAFTY_ENABLED=false
         return
     fi
 
     if ask_yes_no "Enable Crafty Controller console integration?" "n"; then
         set_toml_value "crafty" "enabled" "true"
+        CRAFTY_ENABLED=true
         print_info "Crafty integration enabled."
     else
         set_toml_value "crafty" "enabled" "false"
+        CRAFTY_ENABLED=false
         print_info "Crafty integration disabled."
     fi
 }
@@ -360,7 +449,8 @@ create_systemd_service() {
     fi
 
     if ! validate_config; then
-        print_warning "The systemd service was not created because the configuration is invalid."
+        print_warning \
+            "The systemd service was not created because the configuration is invalid."
         return 1
     fi
 
@@ -377,10 +467,8 @@ Working directory:
   $SCRIPT_DIR
 
 Start command:
-  $PYTHON_PATH $PROXY_SCRIPT
+  $START_SCRIPT
 EOF
-
-    echo
 
     if ! ask_yes_no "Create this systemd service?" "n"; then
         print_info "Skipped systemd service creation."
@@ -399,7 +487,7 @@ After=network.target
 Type=simple
 User=$CURRENT_USER
 WorkingDirectory=$SCRIPT_DIR
-ExecStart=$PYTHON_PATH $PROXY_SCRIPT
+ExecStart=$START_SCRIPT
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGTERM
@@ -446,6 +534,7 @@ main() {
     echo "firewall rules, or router settings."
 
     check_project_files
+    chmod +x "$START_SCRIPT"
     check_python
 
     echo
@@ -474,16 +563,45 @@ main() {
 
     echo "Proxy project directory:"
     echo "  $SCRIPT_DIR"
-    echo
-    echo "Forge server directory:"
-    echo "  $FORGE_DIRECTORY"
+
+    if [[ -n "$FORGE_DIRECTORY" ]]; then
+        echo
+        echo "Forge server directory:"
+        echo "  $FORGE_DIRECTORY"
+    fi
+
     echo
     echo "Manual proxy start command:"
-    echo "  $PYTHON_BIN $PROXY_SCRIPT"
+    echo "  $START_SCRIPT"
+
     echo
     echo "Forge server.properties should use:"
     echo "  server-ip=127.0.0.1"
     echo "  server-port=25566"
+
+    if "$CRAFTY_ENABLED"; then
+        print_header "CRAFTY CONFIGURATION (copy & paste)"
+
+        cat <<EOF
+Working Directory:
+  $SCRIPT_DIR
+
+Execution Command:
+  ./start-proxy.sh
+
+Stop Command:
+  stop
+
+Log Location (relative to Working Directory):
+  ./idle-server.log
+
+Crafty server IP (for stats):
+  127.0.0.1
+
+Crafty server Port (for stats):
+  25565
+EOF
+    fi
 }
 
 main "$@"
