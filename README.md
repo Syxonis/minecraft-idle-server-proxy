@@ -94,7 +94,7 @@ py -3.11 --version
 
 ## Installation
 
-### Quick install from GitHub (Linux)
+### Quick Install from GitHub (Linux)
 
 Clone the repository and start the interactive Linux setup helper:
 
@@ -105,14 +105,13 @@ chmod +x install.sh && \
 ./install.sh
 ```
 
-> The interactive setup helper is intended for Linux. It can create a local
-> configuration file, configure optional Crafty support, and optionally install
-> a `systemd` service.
+> The proxy repository should be installed separately from the Forge server
+> directory. During setup, `install.sh` asks for the absolute path to the
+> directory containing the Forge server files.
 
+### Option A: Interactive Setup Helper for Linux
 
-### Option A: Interactive setup helper for Linux
-
-The repository includes an optional interactive setup helper:
+If the repository was already cloned or downloaded, run:
 
 ```bash
 chmod +x install.sh
@@ -123,6 +122,7 @@ The setup helper can:
 
 - Check for Python 3.11 or newer
 - Create `idle-server.toml` from `idle-server.toml.example`
+- Ask for the absolute Forge server directory
 - Keep or overwrite an existing local configuration after confirmation
 - Enable or disable optional Crafty Controller console integration
 - Validate the configuration
@@ -143,9 +143,9 @@ The helper does **not**:
 > deployment methods. A `systemd` service does not provide Crafty's interactive
 > console input.
 
-### Option B: Manual installation
+### Option B: Manual Installation
 
-#### 1. Clone the repository
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/Syxonis/minecraft-idle-server-proxy.git
@@ -154,7 +154,7 @@ cd minecraft-idle-server-proxy
 
 Alternatively, download the repository as a ZIP file and extract it.
 
-#### 2. Create the local configuration
+#### 2. Create the Local Configuration
 
 Linux/macOS:
 
@@ -171,15 +171,16 @@ Copy-Item idle-server.toml.example idle-server.toml
 The local `idle-server.toml` is ignored by Git. This allows every server owner
 to use their own paths, ports, commands, and server messages.
 
-#### 3. Configure the Forge start command
+#### 3. Configure the Forge Server Directory
 
-Open `idle-server.toml` and adjust the `[server]` section.
+Open `idle-server.toml` and set the `[server]` section.
 
 Example for Forge 1.20.1:
 
 ```toml
 [server]
-directory = "."
+# Absolute path to the directory containing the Forge server files.
+directory = "/path/to/your/forge-server"
 
 command = [
   "java",
@@ -196,8 +197,9 @@ protocol = 763
 max_players = 20
 ```
 
-The `directory` setting must point to the directory containing the Forge server
-files.
+The `directory` setting must be the absolute path to the directory containing
+your Forge server files, such as `mods/`, `world/`, `libraries/`,
+`server.properties`, and `user_jvm_args.txt`.
 
 #### 4. Configure `server.properties`
 
@@ -226,7 +228,7 @@ your-domain-or-ip:25565
 
 Players should not connect directly to the Forge backend port.
 
-#### 5. Validate the configuration
+#### 5. Validate the Configuration
 
 Linux:
 
@@ -246,7 +248,7 @@ Expected output:
 Configuration is valid: /path/to/idle-server.toml
 ```
 
-#### 6. Start the proxy
+#### 6. Start the Proxy
 
 Linux:
 
@@ -285,6 +287,37 @@ python3 -m py_compile idle-server.py
 On Windows PowerShell, use `py -3.11` instead of `python3`.
 
 ## Configuration
+
+### Recommended Directory Layout
+
+Keep the proxy repository separate from the Forge server directory:
+
+```text
+/opt/minecraft/
+├── minecraft-idle-server-proxy/
+│   ├── idle-server.py
+│   ├── idle-server.toml
+│   ├── idle-server.toml.example
+│   └── install.sh
+│
+└── forge-server/
+    ├── libraries/
+    ├── mods/
+    ├── world/
+    ├── server.properties
+    └── user_jvm_args.txt
+```
+
+Example configuration:
+
+```toml
+[server]
+directory = "/opt/minecraft/forge-server"
+```
+
+The proxy changes its working directory to `server.directory` before starting
+Forge. Relative paths in `server.command` are therefore resolved inside the
+Forge server directory.
 
 ### Server and Proxy Ports
 
@@ -331,7 +364,7 @@ The estimated remaining time is calculated as:
 
 ```text
 remaining = max(0, estimated_start_time - elapsed_startup_time)
-
+```
 
 ### Dynamic Message Placeholders
 
@@ -491,7 +524,7 @@ CRITICAL
 
 ## Troubleshooting
 
-### Configuration file not found
+### Configuration File Not Found
 
 Create the local configuration file:
 
@@ -505,7 +538,7 @@ On Windows PowerShell:
 Copy-Item idle-server.toml.example idle-server.toml
 ```
 
-### Python 3.11 is required
+### Python 3.11 Is Required
 
 Check your Python version:
 
@@ -521,7 +554,7 @@ py --version
 
 Install Python 3.11 or newer if necessary.
 
-### Address already in use
+### Address Already in Use
 
 Another program is already using the public proxy port or Forge backend port.
 
@@ -531,7 +564,7 @@ Check listening ports on Linux:
 ss -tulpn | grep -E '25565|25566'
 ```
 
-### Forge does not start
+### Forge Does Not Start
 
 Check the proxy log:
 
@@ -548,7 +581,7 @@ Then verify:
 - The backend port matches `server.properties`.
 - Forge is not already using the public proxy port.
 
-### Players can connect directly to Forge
+### Players Can Connect Directly to Forge
 
 Ensure Forge binds locally:
 
@@ -560,7 +593,7 @@ server-port=25566
 Also ensure the backend port is not exposed through your firewall, hosting
 panel, or router.
 
-### systemd service does not start
+### systemd Service Does Not Start
 
 Check service status and logs:
 

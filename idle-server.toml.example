@@ -1,9 +1,19 @@
 [server]
-# Directory containing the Forge server files.
-# "." means the directory containing idle-server.py.
-directory = "."
+# Absolute path to the directory containing your Forge server files.
+#
+# This directory should contain files such as:
+# - user_jvm_args.txt
+# - libraries/
+# - mods/
+# - world/
+# - server.properties
+#
+# The interactive install.sh setup helper asks for this path automatically.
+directory = "/path/to/your/forge-server"
 
 # Command used to start the Forge server.
+#
+# Relative paths in this command are resolved from server.directory.
 command = [
   "java",
   "@user_jvm_args.txt",
@@ -12,7 +22,8 @@ command = [
 ]
 
 # Forge should listen locally only.
-# Also set server-ip=127.0.0.1 and server-port=25566 in server.properties.
+# Also configure server-ip=127.0.0.1 and server-port=25566
+# in the Forge server.properties file.
 host = "127.0.0.1"
 port = 25566
 
@@ -32,7 +43,7 @@ public_port = 25565
 # Stop Forge after this many seconds without online players.
 sleep_after = 600
 
-# Maximum time Forge may take to open its port.
+# Maximum time Forge may take to open its backend port.
 start_timeout = 300
 
 # Expected startup duration in seconds.
@@ -78,12 +89,7 @@ failed = "§4✖ The server could not be started.\n§7Please check the server lo
 
 
 [crafty]
-# Enable only when the proxy is managed through Crafty Controller.
-#
-# When enabled:
-# - "status" displays proxy and backend state
-# - "stop", "exit", or "quit" stops the proxy and its Forge process
-# - Other commands can optionally be forwarded to Forge
+# Enable only when the proxy process is started through Crafty Controller.
 enabled = false
 
 # Forward normal Crafty console commands to Forge while Forge is running.
