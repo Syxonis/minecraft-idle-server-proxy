@@ -584,16 +584,16 @@ main() {
 
         cat <<EOF
 Working Directory:
-  $SCRIPT_DIR
+  $FORGE_DIRECTORY
 
 Execution Command:
-  ./start-proxy.sh
+  ./$(basename "$SCRIPT_DIR")/start-proxy.sh
 
 Stop Command:
   stop
 
 Log Location (relative to Working Directory):
-  ./idle-server.log
+  ./$(basename "$SCRIPT_DIR")/idle-server.log
 
 Crafty server IP (for stats):
   127.0.0.1
@@ -601,6 +601,7 @@ Crafty server IP (for stats):
 Crafty server Port (for stats):
   25565
 EOF
+    fi
     fi
 }
 
