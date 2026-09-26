@@ -1,0 +1,107 @@
+[server]
+# Directory containing the Forge server files.
+# "." means the directory containing idle-server.py.
+directory = "."
+
+# Command used to start the Forge server.
+command = [
+  "java",
+  "@user_jvm_args.txt",
+  "@libraries/net/minecraftforge/forge/1.20.1-47.4.23/unix_args.txt",
+  "nogui"
+]
+
+# Forge should listen locally only.
+# Also set server-ip=127.0.0.1 and server-port=25566 in server.properties.
+host = "127.0.0.1"
+port = 25566
+
+# Displayed in the server list while Forge is sleeping or starting.
+minecraft_version = "1.20.1"
+protocol = 763
+max_players = 20
+
+
+[proxy]
+# Public address and port used by Minecraft clients.
+bind = "0.0.0.0"
+public_port = 25565
+
+
+[time]
+# Stop Forge after this many seconds without online players.
+sleep_after = 600
+
+# Maximum time Forge may take to open its port.
+start_timeout = 300
+
+# Expected startup duration in seconds.
+# Used only for player-facing messages; it does NOT change start_timeout.
+estimated_start_time = 90
+
+# Interval in seconds for querying Forge's online player count.
+player_check_interval = 15
+
+
+[motd]
+# Shown in the server list while Forge is sleeping.
+sleeping = "§8☾ Server sleeping§7 - Join to wake it"
+
+# First line shown while Forge is starting.
+starting = "§2☻ Server starting..."
+
+# Second line shown while Forge is starting.
+#
+# Available placeholders:
+# {elapsed}   Seconds since startup began
+# {remaining} Estimated seconds remaining
+# {estimate}  Configured estimated startup time
+# {timeout}   Configured startup timeout
+starting_detail = "§7Started {elapsed}s ago - about {remaining}s remaining"
+
+# Shown instead of starting_detail after estimated_start_time was exceeded.
+starting_slow = "§e☻ Startup is taking longer than expected"
+
+# Shown if Forge failed to start.
+failed = "§4✖ Server failed to start"
+
+
+[join]
+# Sent to a player joining while Forge is sleeping or starting.
+#
+# Available placeholders:
+# {elapsed}, {remaining}, {estimate}, {timeout}
+starting = "§2☻ The server is starting!\n§7Please wait about {remaining} seconds\n§7and reconnect."
+
+# Sent if Forge could not be started.
+failed = "§4✖ The server could not be started.\n§7Please check the server log."
+
+
+[crafty]
+# Enable only when the proxy is managed through Crafty Controller.
+#
+# When enabled:
+# - "status" displays proxy and backend state
+# - "stop", "exit", or "quit" stops the proxy and its Forge process
+# - Other commands can optionally be forwarded to Forge
+enabled = false
+
+# Forward normal Crafty console commands to Forge while Forge is running.
+forward_console_commands = true
+
+# Write Forge stdout/stderr to the proxy log and Crafty console.
+show_forge_output = true
+
+
+[log]
+# Relative paths are relative to idle-server.py.
+file = "idle-server.log"
+
+# DEBUG, INFO, WARNING, ERROR, or CRITICAL
+level = "INFO"
+
+# 5 MiB
+max_bytes = 5242880
+
+# Number of rotated old log files to keep.
+backup_count = 3
